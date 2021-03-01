@@ -27,6 +27,16 @@ class SendEmailController {
                 error: "Surveys does not exists",
             });
         }
+
+        //salvar as informaçoes
+        const surveyUser = surveysUsersRepository.create({
+            user_id: userAlreadyExist.id,
+            survey_id
+        })
+
+        await surveysUsersRepository.save(surveyUser);
+        //enviar email
+        return response.json(surveyUser);
     }
 }
 
