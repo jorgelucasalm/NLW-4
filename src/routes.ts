@@ -12,7 +12,6 @@ router.post("/users", userController.create);
 router.get("/showUsers", userController.show);
 
 router.post("/surveys", surveyController.create)
-router.get("/show", surveyController.show)
 
 
 export {router};
