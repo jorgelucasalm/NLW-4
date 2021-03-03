@@ -4,41 +4,68 @@ import { SurveyRepository } from "../repositories/SurveyRepository";
 import { UsersRepository } from "../repositories/UserRepository";
 import { SurveysUsersRepository } from "../repositories/SurveysUsersRepository";
 import SendMailService from "../services/SendMailService";
-
+import { resolve } from 'path';
 class SendEmailController {
-    async execute(request: Request, response: Response){
+    async execute(request: Request, response: Response) {
         const { email, survey_id } = request.body;
-        
+
         const usersRepository = getCustomRepository(UsersRepository);
         const surveysRepository = getCustomRepository(SurveyRepository);
         const surveysUsersRepository = getCustomRepository(SurveysUsersRepository);
 
-        const userAlreadyExist = await usersRepository.findOne({email});
+        const user = await usersRepository.findOne({ email });
 
-        if(!userAlreadyExist){
+        //verificação se existe user
+        if (!user) {
             return response.status(400).json({
                 error: "Users does not exists",
             });
         }
 
-        const survey = await surveysRepository.findOne({id: survey_id});
+        const survey = await surveysRepository.findOne({ id: survey_id });
 
-        if(!survey){
+        //verificação se existe survey
+        if (!survey) {
             return response.status(400).json({
                 error: "Surveys does not exists",
             });
         }
 
+        //variaveis usadas no handle
+        const variables = {
+            name: user.name,
+            title: survey.title,
+            description: survey.description,
+            user_id: user.id,
+            link: process.env.URL_MAIL,
+        }
+
+        //pegando o caminho para o handle
+        const npsPath = resolve(__dirname, "..", "views", "emails", "npsMail.hbs");
+
+        //validando se existe mais de um envio de nota pelo mesmo user
+        const surveyUserAlreadyExist = await surveysUsersRepository.findOne({
+            where: [{ user_id: user.id }, { value: null }]
+        });
+
+        if (surveyUserAlreadyExist) {
+            await SendMailService.execute(email, survey.title, variables, npsPath);
+            return response.json(surveyUserAlreadyExist)
+        }
+
         //salvar as informaçoes
         const surveyUser = surveysUsersRepository.create({
-            user_id: userAlreadyExist.id,
+            user_id: user.id,
             survey_id
         })
 
         await surveysUsersRepository.save(surveyUser);
+
         //enviar email
 
-        await SendMailService.execute(email, survey.title, survey.description);
+
+        //chamando o metodo execute de SendMailService
+        await SendMailService.execute(email, survey.title, variables, npsPath);
 
         return response.json(surveyUser);
     }
